@@ -1,0 +1,239 @@
+// ===============================
+// Robustes TimeMoto-Skript (Final V7 - Klick/Timing- & Datum-Fix)
+// ===============================
+
+// Zeitbuchungen pro Tag: [Datum, In1, Out1, In2, Out2]
+const entries = [
+  ['2025-10-13', '06:25', '12:09', '12:49', '16:17'],
+  ['2025-10-14', '06:49', '13:59', '14:29', '18:15'],
+  ['2025-10-15', '06:37', '13:31', '14:08', '17:27'],
+  ['2025-10-16', '06:25', '13:33', '14:07', '17:37'],
+  ['2025-10-17', '06:49', '13:01', '13:34', '17:23'],
+  ['2025-10-20', '06:37', '13:43', '14:23', '18:11'],
+  ['2025-10-21', '06:41', '13:33', '14:13', '17:43'],
+  ['2025-10-22', '06:45', '12:55', '13:30', '17:13'],
+  ['2025-10-23', '06:49', '12:59', '13:31', '17:43'],
+  ['2025-10-24', '06:39', '12:21', '12:55', '17:37'],
+  ['2025-10-27', '06:35', '12:47', '13:23', '17:21'],
+  ['2025-10-28', '06:39', '13:01', '13:40', '17:07'],
+  ['2025-10-29', '06:31', '13:01', '13:32', '17:17'],
+  ['2025-10-30', '06:35', '12:41', '13:17', '16:41'],
+  ['2025-10-31', '06:33', '12:35', '13:15', '17:17'],
+];
+
+// -------------- Hilfsfunktionen --------------
+
+/**
+ * Wartet auf ein Element im DOM oder auf eine Bedingungsfunktion (max. timeout ms).
+ */
+function waitFor(selectorOrFn, timeout = 8000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    (function check() {
+      let conditionMet = false;
+      let result = null;
+
+      if (typeof selectorOrFn === 'string') {
+        result = document.querySelector(selectorOrFn);
+        conditionMet = !!result;
+      } else if (typeof selectorOrFn === 'function') {
+        try {
+          conditionMet = selectorOrFn();
+        } catch (e) {
+          conditionMet = false;
+        }
+      }
+
+      if (conditionMet) return resolve(result);
+      if (Date.now() - start > timeout) return reject(new Error(`Bedingung '${typeof selectorOrFn === 'string' ? selectorOrFn : 'Funktion'}' nicht erfüllt`));
+      requestAnimationFrame(check);
+    })();
+  });
+}
+
+/**
+ * Simuliert das Tippen von Text in ein Eingabefeld (für robustere Angular/Material-Eingaben).
+ */
+async function typeText(element, text) {
+  element.focus();
+  element.value = ''; // Wichtig: Alten Wert löschen
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+
+  for (const char of text) {
+    element.value += char;
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: char, code: `Key${char.toUpperCase()}` }));
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new KeyboardEvent('keyup', { key: char, code: `Key${char.toUpperCase()}` }));
+    await new Promise(res => setTimeout(res, 10)); // Kurze Pause zwischen Zeichen
+  }
+  element.blur();
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * MatSelect-Option anhand teilweisem Text auswählen
+ * Stabilisiert mit Pause nach dem Klick und erhöhtem Timeout.
+ */
+async function selectOption(selectEl, optionText) {
+  selectEl.click();
+  // Feste Pause für das Overlay-Rendern (250ms für mehr Stabilität)
+  await new Promise(res => setTimeout(res, 250)); 
+  await waitFor('mat-option', 10000); 
+  
+  const opts = Array.from(document.querySelectorAll('mat-option'));
+  const opt = opts.find(o => o.textContent.trim().toLowerCase().includes(optionText.toLowerCase()));
+  
+  if (!opt) throw new Error(`Option '${optionText}' not found`);
+  opt.click();
+}
+
+/**
+ * Fügt im erweiterten Dialog einen Out-Eintrag hinzu und setzt Zeit & Projekt
+ */
+async function addOut(timeValue) {
+  const outButtonSelector = '[data-cy="reporting-timereporting-clockingpair-dialog-add-clock-out-button"]';
+  const outButtons = document.querySelectorAll(outButtonSelector);
+  if (outButtons.length === 0) throw new Error("Kein Out-Button gefunden.");
+  
+  const endInputSelector = 'input[data-cy="reporting-timereporting-clockingpair-dialog-end-time"]';
+  const initialCount = document.querySelectorAll(endInputSelector).length;
+
+  outButtons[outButtons.length - 1].click();
+
+  await waitFor(() => document.querySelectorAll(endInputSelector).length > initialCount, 5000);
+
+  const endInputs = document.querySelectorAll(endInputSelector);
+  const endInput = endInputs[endInputs.length - 1];
+
+  // Verwende typeText für Zeiteingaben (optional, aber konsistent)
+  await typeText(endInput, timeValue);
+
+  const projectSelectSelector = 'mat-select[data-cy="reporting-timereporting-clockingpair-dialog-end-project-select"]';
+  const projectSelects = document.querySelectorAll(projectSelectSelector);
+  await selectOption(projectSelects[projectSelects.length - 1], 'baaboo');
+}
+
+/**
+ * Fügt im erweiterten Dialog einen In-Eintrag hinzu und setzt Zeit & Projekt
+ */
+async function addIn(timeValue) {
+  const inButtonSelector = '[data-cy="reporting-timereporting-clockingpair-dialog-add-clock-in-button"]';
+  const inButtons = document.querySelectorAll(inButtonSelector);
+  if (inButtons.length === 0) throw new Error("Kein In-Button gefunden.");
+
+  const startInputSelector = 'input[data-cy="reporting-timereporting-clockingpair-dialog-start-time"]';
+  const initialCount = document.querySelectorAll(startInputSelector).length;
+
+  inButtons[inButtons.length - 1].click();
+
+  await waitFor(() => document.querySelectorAll(startInputSelector).length > initialCount, 5000);
+  
+  const startInputs = document.querySelectorAll(startInputSelector);
+  const startInput = startInputs[startInputs.length - 1];
+
+  // Verwende typeText für Zeiteingaben (optional, aber konsistent)
+  await typeText(startInput, timeValue);
+
+  const projectSelectSelector = 'mat-select[data-cy="reporting-timereporting-clockingpair-dialog-start-project-select"]';
+  const projectSelects = document.querySelectorAll(projectSelectSelector);
+  await selectOption(projectSelects[projectSelects.length - 1], 'baaboo');
+}
+
+// Hauptfunktion für einen Eintrag
+async function addEntry(date, in1, out1, in2, out2) {
+  console.log(`--- Starte Eintrag für ${date} ---`);
+  
+  // 1. Dialog öffnen
+  const addBtn = document.querySelector('[data-cy="reporting-timereporting-addclockingaction-button"]')
+    || Array.from(document.querySelectorAll('a, button')).find(el => el.textContent?.trim() === 'Add Clocking');
+  if (!addBtn) throw new Error('Add-Clocking-Button nicht gefunden');
+  addBtn.click();
+
+  // 2. Warten, bis Dialog geöffnet ist
+  await waitFor('input[data-cy="reporting-addclockingactiondialog-date-input"]');
+
+  // 3. Mitarbeiter setzen (falls nötig) - ROBUSTE LOGIK:
+  const empSelectSelector = 'mat-select[data-cy="reporting-addclockingactiondialog-employee-select"]';
+  const empSelect = await waitFor(empSelectSelector, 5000); 
+
+  // Klicke und schließe Auswahl, um Angular-Binding zu triggern (falls nötig)
+  empSelect.click();
+  await new Promise(res => setTimeout(res, 50)); 
+  document.body.click(); 
+  await new Promise(res => setTimeout(res, 100)); 
+
+  // Zusätzliche Pause NACH dem "Wake-up"-Klick, um Stabilität zu gewährleisten
+  await new Promise(res => setTimeout(res, 200)); 
+
+  // Prüfen: Wenn der Name nicht sichtbar ist (entweder leer oder falsch), auswählen.
+  if (!empSelect.textContent.toLowerCase().includes('alexander')) {
+    console.log('Mitarbeiter wird manuell gesetzt (oder ist noch leer)...');
+    await selectOption(empSelect, 'Alexander Bruch');
+  } else {
+    console.log('Mitarbeiter ist bereits korrekt voreingestellt.');
+  }
+  
+  // 4. Datum setzen - NEUER DATUMS-FIX DURCH typeText!
+  const dateInput = document.querySelector('input[data-cy="reporting-addclockingactiondialog-date-input"]');
+  await typeText(dateInput, date);
+
+  // 5. Typ "Clock in" setzen
+  const typeSelect = document.querySelector('mat-select[data-cy="reporting-addclockingactiondialog-status-select"]');
+  await selectOption(typeSelect, 'Clock in');
+
+  // 6. Startzeit (In1) setzen (im Initial-Dialog)
+  const startInput = document.querySelector('input[data-cy="reporting-addclockingactiondialog-starttime"]');
+  await typeText(startInput, in1);
+
+  // 7. Zu "Advanced clocking settings" wechseln
+  const advLink = [...document.querySelectorAll('a, button')].find(el => el.textContent?.trim() === 'Advanced clocking settings');
+  if (!advLink) throw new Error('Advanced clocking settings link not gefunden');
+  advLink.click();
+
+  // 8. Warten, bis erweiterter Dialog geladen ist
+  const firstStartInputSelector = 'input[data-cy="reporting-timereporting-clockingpair-dialog-start-time"]';
+  await waitFor(firstStartInputSelector);
+
+  // 9. Erste Startzeit & Projekt setzen (Bestätigung des initialen In1)
+  const firstStartInput = document.querySelector(firstStartInputSelector);
+  // Wieder mit typeText, um Stabilität zu garantieren
+  await typeText(firstStartInput, in1);
+
+  const firstProjectSelect = document.querySelector('mat-select[data-cy="reporting-timereporting-clockingpair-dialog-start-project-select"]');
+  await selectOption(firstProjectSelect, 'baaboo');
+
+  // 10. Erstes Out
+  await addOut(out1);
+
+  // 11. Zweites In
+  await addIn(in2);
+
+  // 12. Zweites Out
+  await addOut(out2);
+
+  // 13. Speichern
+  const saveBtn = document.querySelector('button[data-cy="reporting-timereporting-clockingpair-dialog-editPresence-button"]');
+  if (!saveBtn) throw new Error('Speichern-Button im erweiterten Dialog nicht gefunden');
+  saveBtn.click();
+
+  // 14. Warte auf Speicherung
+  await new Promise(res => setTimeout(res, 1200)); 
+}
+
+// Sequentially add all entries
+async function run() {
+  for (const [date, in1, out1, in2, out2] of entries) {
+    console.log(`Füge ${date} ein...`);
+    try {
+      await addEntry(date, in1, out1, in2, out2);
+      console.log(`Eintrag für ${date} erfolgreich.`);
+    } catch (error) {
+      console.error(`🚨 Fehler beim Einfügen von ${date}:`, error.message);
+      break; // Stoppe bei Fehler
+    }
+  }
+  console.log('✅ Alle verbleibenden Einträge eingetragen (oder nach Fehler gestoppt).');
+}
+
+run().catch(err => console.error('🔴 Kritischer Skriptfehler (vor Start oder im Run-Loop):', err));
