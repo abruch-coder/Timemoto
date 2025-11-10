@@ -2,23 +2,23 @@
 // Robustes TimeMoto-Skript (Final V7 - Klick/Timing- & Datum-Fix)
 // ===============================
 
-// Zeitbuchungen pro Tag: [Datum, In1, Out1, In2, Out2]
+// Zeitbuchungen pro Tag: [Datum (DD-MM-YYYY), In1, Out1, In2, Out2]
 const entries = [
-  ['2025-10-13', '06:25', '12:09', '12:49', '16:17'],
-  ['2025-10-14', '06:49', '13:59', '14:29', '18:15'],
-  ['2025-10-15', '06:37', '13:31', '14:08', '17:27'],
-  ['2025-10-16', '06:25', '13:33', '14:07', '17:37'],
-  ['2025-10-17', '06:49', '13:01', '13:34', '17:23'],
-  ['2025-10-20', '06:37', '13:43', '14:23', '18:11'],
-  ['2025-10-21', '06:41', '13:33', '14:13', '17:43'],
-  ['2025-10-22', '06:45', '12:55', '13:30', '17:13'],
-  ['2025-10-23', '06:49', '12:59', '13:31', '17:43'],
-  ['2025-10-24', '06:39', '12:21', '12:55', '17:37'],
-  ['2025-10-27', '06:35', '12:47', '13:23', '17:21'],
-  ['2025-10-28', '06:39', '13:01', '13:40', '17:07'],
-  ['2025-10-29', '06:31', '13:01', '13:32', '17:17'],
-  ['2025-10-30', '06:35', '12:41', '13:17', '16:41'],
-  ['2025-10-31', '06:33', '12:35', '13:15', '17:17'],
+  ['13-10-2025', '06:25', '12:09', '12:49', '16:17'],
+  ['14-10-2025', '06:49', '13:59', '14:29', '18:15'],
+  ['15-10-2025', '06:37', '13:31', '14:08', '17:27'],
+  ['16-10-2025', '06:25', '13:33', '14:07', '17:37'],
+  ['17-10-2025', '06:49', '13:01', '13:34', '17:23'],
+  ['20-10-2025', '06:37', '13:43', '14:23', '18:11'],
+  ['21-10-2025', '06:41', '13:33', '14:13', '17:43'],
+  ['22-10-2025', '06:45', '12:55', '13:30', '17:13'],
+  ['23-10-2025', '06:49', '12:59', '13:31', '17:43'],
+  ['24-10-2025', '06:39', '12:21', '12:55', '17:37'],
+  ['27-10-2025', '06:35', '12:47', '13:23', '17:21'],
+  ['28-10-2025', '06:39', '13:01', '13:40', '17:07'],
+  ['29-10-2025', '06:31', '13:01', '13:32', '17:17'],
+  ['30-10-2025', '06:35', '12:41', '13:17', '16:41'],
+  ['31-10-2025', '06:33', '12:35', '13:15', '17:17'],
 ];
 
 // -------------- Hilfsfunktionen --------------
@@ -62,13 +62,14 @@ async function typeText(element, text) {
 
   for (const char of text) {
     element.value += char;
-    element.dispatchEvent(new KeyboardEvent('keydown', { key: char, code: `Key${char.toUpperCase()}` }));
+    // Es werden nur 'input' Events benötigt, die zusätzlichen Key-Events sind oft nicht nötig, aber bleiben als Option hier.
     element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new KeyboardEvent('keyup', { key: char, code: `Key${char.toUpperCase()}` }));
     await new Promise(res => setTimeout(res, 10)); // Kurze Pause zwischen Zeichen
   }
   element.blur();
   element.dispatchEvent(new Event('change', { bubbles: true }));
+  // Zusätzliche Pause, um Angular Zeit zum Verarbeiten zu geben
+  await new Promise(res => setTimeout(res, 50)); 
 }
 
 /**
@@ -106,7 +107,6 @@ async function addOut(timeValue) {
   const endInputs = document.querySelectorAll(endInputSelector);
   const endInput = endInputs[endInputs.length - 1];
 
-  // Verwende typeText für Zeiteingaben (optional, aber konsistent)
   await typeText(endInput, timeValue);
 
   const projectSelectSelector = 'mat-select[data-cy="reporting-timereporting-clockingpair-dialog-end-project-select"]';
@@ -132,7 +132,6 @@ async function addIn(timeValue) {
   const startInputs = document.querySelectorAll(startInputSelector);
   const startInput = startInputs[startInputs.length - 1];
 
-  // Verwende typeText für Zeiteingaben (optional, aber konsistent)
   await typeText(startInput, timeValue);
 
   const projectSelectSelector = 'mat-select[data-cy="reporting-timereporting-clockingpair-dialog-start-project-select"]';
@@ -174,7 +173,7 @@ async function addEntry(date, in1, out1, in2, out2) {
     console.log('Mitarbeiter ist bereits korrekt voreingestellt.');
   }
   
-  // 4. Datum setzen - NEUER DATUMS-FIX DURCH typeText!
+  // 4. Datum setzen - NUTZT typeText FÜR ROBUSTE EINGABE
   const dateInput = document.querySelector('input[data-cy="reporting-addclockingactiondialog-date-input"]');
   await typeText(dateInput, date);
 
@@ -197,7 +196,6 @@ async function addEntry(date, in1, out1, in2, out2) {
 
   // 9. Erste Startzeit & Projekt setzen (Bestätigung des initialen In1)
   const firstStartInput = document.querySelector(firstStartInputSelector);
-  // Wieder mit typeText, um Stabilität zu garantieren
   await typeText(firstStartInput, in1);
 
   const firstProjectSelect = document.querySelector('mat-select[data-cy="reporting-timereporting-clockingpair-dialog-start-project-select"]');
