@@ -1,5 +1,5 @@
 // ===============================
-// Robustes TimeMoto-Skript (Final V8 - Projekt-Select Stabilität & 15s Pause)
+// Robustes TimeMoto-Skript (Final V16 - Single Out Button Korrektur)
 // ===============================
 
 // Zeitbuchungen pro Tag: [Datum (DD-MM-YYYY), In1, Out1, In2, Out2]
@@ -21,7 +21,7 @@ const entries = [
   ['31-10-2025', '06:33', '12:35', '13:15', '17:17'],
 ];
 
-// -------------- Hilfsfunktionen --------------
+// --- HILFSFUNKTIONEN ---
 
 /**
  * Wartet auf ein Element im DOM oder auf eine Bedingungsfunktion (max. timeout ms).
@@ -52,18 +52,22 @@ function waitFor(selectorOrFn, timeout = 8000) {
 }
 
 /**
- * Simuliert das Tippen von Text in ein Eingabefeld (für robustere Angular/Material-Eingaben).
+ * Simuliert das Tippen von Text in ein Eingabefeld.
  */
 async function typeText(element, text) {
+  if (!element) {
+    throw new Error("Element für typeText ist null oder undefined.");
+  }
+  
   element.focus();
-  element.value = ''; // Wichtig: Alten Wert löschen
+  element.value = ''; 
   element.dispatchEvent(new Event('input', { bubbles: true }));
   element.dispatchEvent(new Event('change', { bubbles: true }));
 
   for (const char of text) {
     element.value += char;
     element.dispatchEvent(new Event('input', { bubbles: true }));
-    await new Promise(res => setTimeout(res, 10)); // Kurze Pause zwischen Zeichen
+    await new Promise(res => setTimeout(res, 10)); 
   }
   element.blur();
   element.dispatchEvent(new Event('change', { bubbles: true }));
@@ -72,7 +76,6 @@ async function typeText(element, text) {
 
 /**
  * MatSelect-Option anhand teilweisem Text auswählen
- * Stabilisiert mit Pause nach dem Klick und erhöhtem Timeout.
  */
 async function selectOption(selectEl, optionText) {
   selectEl.click();
@@ -88,54 +91,17 @@ async function selectOption(selectEl, optionText) {
 }
 
 /**
- * Fügt im erweiterten Dialog einen Out-Eintrag hinzu und setzt Zeit & Projekt
+ * Ruft alle Paare (Start/Endzeit und Projekte) ab. Wichtig: NodeList muss nach DOM-Änderungen neu abgerufen werden.
  */
-async function addOut(timeValue) {
-  const outButtonSelector = '[data-cy="reporting-timereporting-clockingpair-dialog-add-clock-out-button"]';
-  const outButtons = document.querySelectorAll(outButtonSelector);
-  if (outButtons.length === 0) throw new Error("Kein Out-Button gefunden.");
-  
-  const endInputSelector = 'input[data-cy="reporting-timereporting-clockingpair-dialog-end-time"]';
-  const initialCount = document.querySelectorAll(endInputSelector).length;
-
-  outButtons[outButtons.length - 1].click();
-
-  await waitFor(() => document.querySelectorAll(endInputSelector).length > initialCount, 5000);
-
-  const endInputs = document.querySelectorAll(endInputSelector);
-  const endInput = endInputs[endInputs.length - 1];
-
-  await typeText(endInput, timeValue);
-
-  const projectSelectSelector = 'mat-select[data-cy="reporting-timereporting-clockingpair-dialog-end-project-select"]';
-  const projectSelects = document.querySelectorAll(projectSelectSelector);
-  await selectOption(projectSelects[projectSelects.length - 1], 'baaboo');
+function getClockingElements() {
+    return {
+        startInputs: document.querySelectorAll('input[data-cy="reporting-timereporting-clockingpair-dialog-start-time"]'),
+        endInputs: document.querySelectorAll('input[data-cy="reporting-timereporting-clockingpair-dialog-end-time"]'),
+        startProjectSelects: document.querySelectorAll('mat-select[data-cy="reporting-timereporting-clockingpair-dialog-start-project-select"]'),
+        endProjectSelects: document.querySelectorAll('mat-select[data-cy="reporting-timereporting-clockingpair-dialog-end-project-select"]')
+    };
 }
 
-/**
- * Fügt im erweiterten Dialog einen In-Eintrag hinzu und setzt Zeit & Projekt
- */
-async function addIn(timeValue) {
-  const inButtonSelector = '[data-cy="reporting-timereporting-clockingpair-dialog-add-clock-in-button"]';
-  const inButtons = document.querySelectorAll(inButtonSelector);
-  if (inButtons.length === 0) throw new Error("Kein In-Button gefunden.");
-
-  const startInputSelector = 'input[data-cy="reporting-timereporting-clockingpair-dialog-start-time"]';
-  const initialCount = document.querySelectorAll(startInputSelector).length;
-
-  inButtons[inButtons.length - 1].click();
-
-  await waitFor(() => document.querySelectorAll(startInputSelector).length > initialCount, 5000);
-  
-  const startInputs = document.querySelectorAll(startInputSelector);
-  const startInput = startInputs[startInputs.length - 1];
-
-  await typeText(startInput, timeValue);
-
-  const projectSelectSelector = 'mat-select[data-cy="reporting-timereporting-clockingpair-dialog-start-project-select"]';
-  const projectSelects = document.querySelectorAll(projectSelectSelector);
-  await selectOption(projectSelects[projectSelects.length - 1], 'baaboo');
-}
 
 // Hauptfunktion für einen Eintrag
 async function addEntry(date, in1, out1, in2, out2) {
@@ -160,13 +126,14 @@ async function addEntry(date, in1, out1, in2, out2) {
   document.body.click(); 
   await new Promise(res => setTimeout(res, 100)); 
 
-  // Zusätzliche Pause NACH dem "Wake-up"-Klick, um Stabilität zu gewährleisten
-  await new Promise(res => setTimeout(res, 200)); 
+  // Zusätzliche Pause NACH dem "Wake-up"-Klick
+  await new Promise(res => setTimeout(res, 200)); 
 
   // Prüfen: Wenn der Name nicht sichtbar ist, auswählen.
   if (!empSelect.textContent.toLowerCase().includes('alexander')) {
     console.log('Mitarbeiter wird manuell gesetzt...');
     await selectOption(empSelect, 'Alexander Bruch');
+    await new Promise(res => setTimeout(res, 300)); 
   } else {
     console.log('Mitarbeiter ist bereits korrekt voreingestellt.');
   }
@@ -178,10 +145,12 @@ async function addEntry(date, in1, out1, in2, out2) {
   // 5. Typ "Clock in" setzen
   const typeSelect = document.querySelector('mat-select[data-cy="reporting-addclockingactiondialog-status-select"]');
   await selectOption(typeSelect, 'Clock in');
+  await new Promise(res => setTimeout(res, 300)); 
 
   // 6. Startzeit (In1) setzen (im Initial-Dialog)
   const startInput = document.querySelector('input[data-cy="reporting-addclockingactiondialog-starttime"]');
   await typeText(startInput, in1);
+
 
   // 7. Zu "Advanced clocking settings" wechseln
   const advLink = [...document.querySelectorAll('a, button')].find(el => el.textContent?.trim() === 'Advanced clocking settings');
@@ -189,35 +158,106 @@ async function addEntry(date, in1, out1, in2, out2) {
   advLink.click();
 
   // 8. Warten, bis erweiterter Dialog geladen ist
-  const firstStartInputSelector = 'input[data-cy="reporting-timereporting-clockingpair-dialog-start-time"]';
-  await waitFor(firstStartInputSelector);
-  
+  await waitFor('input[data-cy="reporting-timereporting-clockingpair-dialog-start-time"]');
+  
   // Warten auf UI-Stabilität nach dem Wechsel zum erweiterten Dialog
-  await new Promise(res => setTimeout(res, 500)); 
+  await new Promise(res => setTimeout(res, 500)); 
 
-  // 9. Erste Startzeit & Projekt setzen (Bestätigung des initialen In1)
-  const firstStartInput = document.querySelector(firstStartInputSelector);
-  await typeText(firstStartInput, in1);
+  // --- PROJEKT- UND ZEIT-ZUWEISUNG IN DER ERWEITERTEN ANSICHT ---
+  
+  let elements;
+  const startInputSelector = 'input[data-cy="reporting-timereporting-clockingpair-dialog-start-time"]';
+  const endInputSelector = 'input[data-cy="reporting-timereporting-clockingpair-dialog-end-time"]';
+  
+  // PAAR 1 (IN1 / OUT1)
+  console.log("Setze Paar 1...");
+  
+  // 9a. Projekt 1 (Start) setzen (Element 0 muss existieren)
+  elements = getClockingElements(); 
+  await selectOption(elements.startProjectSelects[0], 'baaboo');
 
-  const firstProjectSelect = document.querySelector('mat-select[data-cy="reporting-timereporting-clockingpair-dialog-start-project-select"]');
-  await selectOption(firstProjectSelect, 'baaboo');
+  // 9b. Endzeit 1 (Out1) setzen (OUT-Button klicken)
+  console.log("Füge Out1 hinzu...");
+  
+  // Warte auf Stabilität nach dem Projekt-Select
+  await new Promise(res => setTimeout(res, 300)); 
+  
+  // Finde den Out-Button der ERSTEN ZEILE
+  const outButtonSelectorSingle = '[data-cy="reporting-timereporting-clockingpair-dialog-add-clock-out-button"]';
+  const outButton = await waitFor(outButtonSelectorSingle);
+  
+  const endInputsCount = document.querySelectorAll(endInputSelector).length;
+  outButton.click();
+  
+  // Warte, bis das End Time Feld erscheint
+  await waitFor(() => document.querySelectorAll(endInputSelector).length > endInputsCount, 5000);
 
-  // 10. Erstes Out
-  await addOut(out1);
+  // Selektoren neu abrufen, da die OUT-Felder jetzt im DOM sind
+  elements = getClockingElements(); 
+  
+  // 9c. Endzeit 1 (Out1) setzen (Index 0)
+  await typeText(elements.endInputs[0], out1);
 
-  // 11. Zweites In
-  await addIn(in2);
+  // 9d. Projekt 1 (Ende) setzen (Index 0)
+  await selectOption(elements.endProjectSelects[0], 'baaboo');
+  
+  // PAAR 2 (IN2 / OUT2)
+  console.log("Füge Paar 2 hinzu...");
+  
+  // 10a. Zweites In (In2) HINZUFÜGEN (über den "In" Button ganz unten)
+  // Warte, bis der IN-Button erscheint (er sollte jetzt erscheinen, da Paar 1 vollständig ist)
+  const inButtonSelector = '[data-cy="reporting-timereporting-clockingpair-dialog-add-clock-in-button"]';
+  const inButton = await waitFor(inButtonSelector); 
+  
+  // Elemente erneut abrufen vor dem Klick
+  elements = getClockingElements();
+  const initialCount = elements.startInputs.length;
+  
+  inButton.click();
+  
+  // Warte, bis der zweite IN-Block im DOM erscheint
+  await waitFor(() => document.querySelectorAll(startInputSelector).length > initialCount, 5000);
+  
+  // Elemente erneut abrufen, um die neuen Indexe zu erfassen
+  elements = getClockingElements();
 
-  // 12. Zweites Out
-  await addOut(out2);
+  // 10b. Startzeit 2 (In2) setzen (Index 1)
+  await typeText(elements.startInputs[1], in2);
+  
+  // 10c. Projekt 2 (Start) setzen (Index 1)
+  await selectOption(elements.startProjectSelects[1], 'baaboo');
+  
+  // 10d. Zweites Out (Out2) HINZUFÜGEN (über den "Out" Button)
+  // Warte auf Stabilität nach dem Projekt-Select
+  await new Promise(res => setTimeout(res, 300)); 
+  
+  // HIER IST DIE KRITISCHE STELLE: Wir suchen den EINZIGEN Out-Button, der jetzt für Paar 2 da ist.
+  const outButtonSelector = '[data-cy="reporting-timereporting-clockingpair-dialog-add-clock-out-button"]';
+  const outButton2 = await waitFor(outButtonSelector); // Sollte den Button für Paar 2 finden
+  
+  const endInputsCount2 = elements.endInputs.length;
+  outButton2.click(); // Klicke den Button
 
-  // 13. Speichern
+  // Warte, bis End Time 2 erscheint
+  await waitFor(() => document.querySelectorAll(endInputSelector).length > endInputsCount2, 5000);
+
+  // Elemente erneut abrufen
+  elements = getClockingElements();
+
+  // 10e. Endzeit 2 (Out2) setzen (Index 1)
+  await typeText(elements.endInputs[1], out2);
+
+  // 10f. Projekt 2 (Ende) setzen (Index 1)
+  await selectOption(elements.endProjectSelects[1], 'baaboo');
+
+
+  // 11. Speichern
   const saveBtn = document.querySelector('button[data-cy="reporting-timereporting-clockingpair-dialog-editPresence-button"]');
   if (!saveBtn) throw new Error('Speichern-Button im erweiterten Dialog nicht gefunden');
   saveBtn.click();
 
-  // 14. Warte auf Speicherung (PAUSE AUF 15 SEKUNDEN ERHÖHT)
-  await new Promise(res => setTimeout(res, 15000)); 
+  // 12. Warte auf Speicherung (PAUSE AUF 7 SEKUNDEN)
+  await new Promise(res => setTimeout(res, 7000)); 
 }
 
 // Sequentially add all entries
