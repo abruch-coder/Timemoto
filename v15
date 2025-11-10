@@ -260,8 +260,8 @@ async function addEntry(date, in1, out1, in2, out2) {
   if (!saveBtn) throw new Error('Speichern-Button im erweiterten Dialog nicht gefunden');
   saveBtn.click();
 
-  // 12. Warte auf Speicherung (PAUSE AUF 15 SEKUNDEN)
-  await new Promise(res => setTimeout(res, 15000)); 
+  // 12. Warte auf Speicherung (PAUSE AUF 7 SEKUNDEN)
+  await new Promise(res => setTimeout(res, 7000)); 
 }
 
 // Sequentially add all entries
