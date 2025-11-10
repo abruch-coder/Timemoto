@@ -1,6 +1,11 @@
 // ===============================
-// Robustes TimeMoto-Skript (Final V16 - Single Out Button Korrektur)
+// Robustes TimeMoto-Skript (Final V15 - Mit Nutzer-Variable)
 // ===============================
+
+// -------------- KONFIGURATION --------------
+const TARGET_EMPLOYEE = 'Alexander Bruch'; 
+const TARGET_PROJECT = 'baaboo';
+// -------------------------------------------
 
 // Zeitbuchungen pro Tag: [Datum (DD-MM-YYYY), In1, Out1, In2, Out2]
 const entries = [
@@ -130,12 +135,12 @@ async function addEntry(date, in1, out1, in2, out2) {
   await new Promise(res => setTimeout(res, 200)); 
 
   // Prüfen: Wenn der Name nicht sichtbar ist, auswählen.
-  if (!empSelect.textContent.toLowerCase().includes('alexander')) {
-    console.log('Mitarbeiter wird manuell gesetzt...');
-    await selectOption(empSelect, 'Alexander Bruch');
+  if (!empSelect.textContent.toLowerCase().includes(TARGET_EMPLOYEE.toLowerCase())) {
+    console.log(`Mitarbeiter (${TARGET_EMPLOYEE}) wird manuell gesetzt...`);
+    await selectOption(empSelect, TARGET_EMPLOYEE);
     await new Promise(res => setTimeout(res, 300)); 
   } else {
-    console.log('Mitarbeiter ist bereits korrekt voreingestellt.');
+    console.log(`Mitarbeiter (${TARGET_EMPLOYEE}) ist bereits korrekt voreingestellt.`);
   }
   
   // 4. Datum setzen
@@ -174,7 +179,7 @@ async function addEntry(date, in1, out1, in2, out2) {
   
   // 9a. Projekt 1 (Start) setzen (Element 0 muss existieren)
   elements = getClockingElements(); 
-  await selectOption(elements.startProjectSelects[0], 'baaboo');
+  await selectOption(elements.startProjectSelects[0], TARGET_PROJECT);
 
   // 9b. Endzeit 1 (Out1) setzen (OUT-Button klicken)
   console.log("Füge Out1 hinzu...");
@@ -199,13 +204,12 @@ async function addEntry(date, in1, out1, in2, out2) {
   await typeText(elements.endInputs[0], out1);
 
   // 9d. Projekt 1 (Ende) setzen (Index 0)
-  await selectOption(elements.endProjectSelects[0], 'baaboo');
+  await selectOption(elements.endProjectSelects[0], TARGET_PROJECT);
   
   // PAAR 2 (IN2 / OUT2)
   console.log("Füge Paar 2 hinzu...");
   
   // 10a. Zweites In (In2) HINZUFÜGEN (über den "In" Button ganz unten)
-  // Warte, bis der IN-Button erscheint (er sollte jetzt erscheinen, da Paar 1 vollständig ist)
   const inButtonSelector = '[data-cy="reporting-timereporting-clockingpair-dialog-add-clock-in-button"]';
   const inButton = await waitFor(inButtonSelector); 
   
@@ -225,7 +229,7 @@ async function addEntry(date, in1, out1, in2, out2) {
   await typeText(elements.startInputs[1], in2);
   
   // 10c. Projekt 2 (Start) setzen (Index 1)
-  await selectOption(elements.startProjectSelects[1], 'baaboo');
+  await selectOption(elements.startProjectSelects[1], TARGET_PROJECT);
   
   // 10d. Zweites Out (Out2) HINZUFÜGEN (über den "Out" Button)
   // Warte auf Stabilität nach dem Projekt-Select
@@ -248,7 +252,7 @@ async function addEntry(date, in1, out1, in2, out2) {
   await typeText(elements.endInputs[1], out2);
 
   // 10f. Projekt 2 (Ende) setzen (Index 1)
-  await selectOption(elements.endProjectSelects[1], 'baaboo');
+  await selectOption(elements.endProjectSelects[1], TARGET_PROJECT);
 
 
   // 11. Speichern
@@ -256,8 +260,8 @@ async function addEntry(date, in1, out1, in2, out2) {
   if (!saveBtn) throw new Error('Speichern-Button im erweiterten Dialog nicht gefunden');
   saveBtn.click();
 
-  // 12. Warte auf Speicherung (PAUSE AUF 7 SEKUNDEN)
-  await new Promise(res => setTimeout(res, 7000)); 
+  // 12. Warte auf Speicherung (PAUSE AUF 15 SEKUNDEN)
+  await new Promise(res => setTimeout(res, 15000)); 
 }
 
 // Sequentially add all entries
