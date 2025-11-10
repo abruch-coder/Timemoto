@@ -1,5 +1,5 @@
 // ===============================
-// Robustes TimeMoto-Skript (Final V7 - Klick/Timing- & Datum-Fix)
+// Robustes TimeMoto-Skript (Final V8 - Projekt-Select Stabilität & 15s Pause)
 // ===============================
 
 // Zeitbuchungen pro Tag: [Datum (DD-MM-YYYY), In1, Out1, In2, Out2]
@@ -62,13 +62,11 @@ async function typeText(element, text) {
 
   for (const char of text) {
     element.value += char;
-    // Es werden nur 'input' Events benötigt, die zusätzlichen Key-Events sind oft nicht nötig, aber bleiben als Option hier.
     element.dispatchEvent(new Event('input', { bubbles: true }));
     await new Promise(res => setTimeout(res, 10)); // Kurze Pause zwischen Zeichen
   }
   element.blur();
   element.dispatchEvent(new Event('change', { bubbles: true }));
-  // Zusätzliche Pause, um Angular Zeit zum Verarbeiten zu geben
   await new Promise(res => setTimeout(res, 50)); 
 }
 
@@ -78,8 +76,8 @@ async function typeText(element, text) {
  */
 async function selectOption(selectEl, optionText) {
   selectEl.click();
-  // Feste Pause für das Overlay-Rendern (250ms für mehr Stabilität)
-  await new Promise(res => setTimeout(res, 250)); 
+  // Feste Pause für das Overlay-Rendern (400ms für mehr Stabilität)
+  await new Promise(res => setTimeout(res, 400)); 
   await waitFor('mat-option', 10000); 
   
   const opts = Array.from(document.querySelectorAll('mat-option'));
@@ -152,7 +150,7 @@ async function addEntry(date, in1, out1, in2, out2) {
   // 2. Warten, bis Dialog geöffnet ist
   await waitFor('input[data-cy="reporting-addclockingactiondialog-date-input"]');
 
-  // 3. Mitarbeiter setzen (falls nötig) - ROBUSTE LOGIK:
+  // 3. Mitarbeiter setzen (falls nötig)
   const empSelectSelector = 'mat-select[data-cy="reporting-addclockingactiondialog-employee-select"]';
   const empSelect = await waitFor(empSelectSelector, 5000); 
 
@@ -165,15 +163,15 @@ async function addEntry(date, in1, out1, in2, out2) {
   // Zusätzliche Pause NACH dem "Wake-up"-Klick, um Stabilität zu gewährleisten
   await new Promise(res => setTimeout(res, 200)); 
 
-  // Prüfen: Wenn der Name nicht sichtbar ist (entweder leer oder falsch), auswählen.
+  // Prüfen: Wenn der Name nicht sichtbar ist, auswählen.
   if (!empSelect.textContent.toLowerCase().includes('alexander')) {
-    console.log('Mitarbeiter wird manuell gesetzt (oder ist noch leer)...');
+    console.log('Mitarbeiter wird manuell gesetzt...');
     await selectOption(empSelect, 'Alexander Bruch');
   } else {
     console.log('Mitarbeiter ist bereits korrekt voreingestellt.');
   }
   
-  // 4. Datum setzen - NUTZT typeText FÜR ROBUSTE EINGABE
+  // 4. Datum setzen
   const dateInput = document.querySelector('input[data-cy="reporting-addclockingactiondialog-date-input"]');
   await typeText(dateInput, date);
 
@@ -193,6 +191,9 @@ async function addEntry(date, in1, out1, in2, out2) {
   // 8. Warten, bis erweiterter Dialog geladen ist
   const firstStartInputSelector = 'input[data-cy="reporting-timereporting-clockingpair-dialog-start-time"]';
   await waitFor(firstStartInputSelector);
+  
+  // Warten auf UI-Stabilität nach dem Wechsel zum erweiterten Dialog
+  await new Promise(res => setTimeout(res, 500)); 
 
   // 9. Erste Startzeit & Projekt setzen (Bestätigung des initialen In1)
   const firstStartInput = document.querySelector(firstStartInputSelector);
@@ -215,8 +216,8 @@ async function addEntry(date, in1, out1, in2, out2) {
   if (!saveBtn) throw new Error('Speichern-Button im erweiterten Dialog nicht gefunden');
   saveBtn.click();
 
-  // 14. Warte auf Speicherung
-  await new Promise(res => setTimeout(res, 1200)); 
+  // 14. Warte auf Speicherung (PAUSE AUF 15 SEKUNDEN ERHÖHT)
+  await new Promise(res => setTimeout(res, 15000)); 
 }
 
 // Sequentially add all entries
